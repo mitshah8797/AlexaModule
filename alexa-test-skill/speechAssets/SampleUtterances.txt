@@ -1,0 +1,9 @@
+GreetingIntent Hello
+GreetingIntent Hi
+GreetingIntent Hello Bank Assistant
+GreetingIntent Hi Bank Assistant
+GreetingIntent Hey
+GreetingIntent Hey Bank Assistant
+GreetingIntent Hello Alexa
+GreetingIntent Hi Alexa
+GreetingIntent Hey Alexa
