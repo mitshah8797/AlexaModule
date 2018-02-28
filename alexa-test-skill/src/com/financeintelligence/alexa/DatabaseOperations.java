@@ -11,6 +11,7 @@ public class DatabaseOperations {
 	private static final String DB_USER = "mitshah";
 	private static final String DB_PASS = "SmH8797!!";
 	
+	
 	private static Connection connection = null;
 	
 	static {
@@ -31,5 +32,19 @@ public class DatabaseOperations {
 			e.printStackTrace();
 			return null;
 		}
+	}
+	
+	public static String getLoanDescription(String loanName) {
+		String response = null;
+		try {
+			Statement st = connection.createStatement();
+			ResultSet rs = st.executeQuery("SELECT * FROM LoanTypeTable WHERE TypeName LIKE '"+ loanName +"%'");
+			if (rs.next()) {
+				response = rs.getString("Description");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return response;
 	}
 }

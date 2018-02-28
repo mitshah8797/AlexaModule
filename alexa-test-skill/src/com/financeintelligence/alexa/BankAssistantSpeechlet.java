@@ -2,12 +2,14 @@ package com.financeintelligence.alexa;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazon.speech.json.SpeechletRequestEnvelope;
 import com.amazon.speech.slu.Intent;
+import com.amazon.speech.slu.Slot;
 import com.amazon.speech.speechlet.IntentRequest;
 import com.amazon.speech.speechlet.LaunchRequest;
 import com.amazon.speech.speechlet.Session;
@@ -21,6 +23,9 @@ import com.amazon.speech.ui.SimpleCard;
 
 public class BankAssistantSpeechlet implements SpeechletV2 {
 	private static final Logger log = LoggerFactory.getLogger(BankAssistantSpeechlet.class);
+	
+	private static final String LOAN_TYPE_SLOT = "LoanName";
+	private static final String LOAN_TYPE = "LOANTYPE";
 
 	@Override
 	public void onSessionStarted(SpeechletRequestEnvelope<SessionStartedRequest> requestEnvelope) {
@@ -58,11 +63,11 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 				String errorSpeech = "This is unsupported.  Please try something else.";
 				return getSpeechletResponse(errorSpeech, errorSpeech, true);
 			}
-		} else if ("LoanDetailIntent".equals(intentName)) {
-			return getLoanDetailsResponce();
 		} else if ("SessionEndIntent".equals(intentName)) {
 			return getEndSessionResponse();
-		} else if ("AMAZON.HelpIntent".equals(intentName)) {
+		} else if ("LoanInfoIntent".equals(intentName)) {
+			return getLoanDetailsResponce(intent, session);
+		}  else if ("AMAZON.HelpIntent".equals(intentName)) {
 			return getGreetingResponce();
 		} else {
 			String errorSpeech = "This is unsupported.  Please try something else.";
@@ -105,13 +110,21 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 		return getSpeechletResponse(speechText, repromptText, true);
 	}
 	
-	private SpeechletResponse getLoanDetailsResponce() {
-		String speechText = "We have 'Apna Ghar' scheme going on for housing loan."
-				+ "The interest rate is very low at 9.5%. It is usaually a 10 year or more scheme "
-				+ "depending on the amount you need as a loan. Maximum 90% loan can be "
-				+ "sacnctioned! I hope you have all the details you need. May I assist you any further?";
+	private SpeechletResponse getLoanDetailsResponce(final Intent intent, final Session session) {
+		// Get the slots from the intent.
+        Map<String, Slot> slots = intent.getSlots();
+        
+        Slot loanTypeSlot = slots.get(LOAN_TYPE_SLOT);
+        
+        String speechText;
 		String repromptText = "May I help you?";
-
+		
+        if (loanTypeSlot != null) {
+        	String loanType = loanTypeSlot.getValue();
+        	speechText = DatabaseOperations.getLoanDescription(loanType);
+        } else {
+        	speechText = "Please tell me the specific loan type you want to know about.";
+        }
 		return getSpeechletResponse(speechText, repromptText, true);
 	}
 	
