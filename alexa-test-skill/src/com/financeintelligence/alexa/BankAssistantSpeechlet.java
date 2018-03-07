@@ -23,9 +23,16 @@ import com.amazon.speech.ui.SimpleCard;
 
 public class BankAssistantSpeechlet implements SpeechletV2 {
 	private static final Logger log = LoggerFactory.getLogger(BankAssistantSpeechlet.class);
-	
+
 	private static final String LOAN_TYPE_SLOT = "LoanName";
+	private static final String EMI_AMOUNT_SLOT = "Amount";
+
 	private static final String LOAN_TYPE = "LOANTYPE";
+	private static final String LOAN_AMOUNT = "LOANAMOUNT";
+	private static final String LOAN_PERIOD = "LOANPERIOD";
+
+	private static boolean emiFlag = false;
+	private static int emiStatus = 0;
 
 	@Override
 	public void onSessionStarted(SpeechletRequestEnvelope<SessionStartedRequest> requestEnvelope) {
@@ -54,24 +61,42 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 		// Note: If the session is started with an intent, no welcome message will be
 		// rendered;
 		// rather, the intent specific response will be returned.
-		if ("GreetingIntent".equals(intentName)) {
-			return getGreetingResponce();
-		} else if ("ListLoanIntent".equals(intentName)) {
-			try {
-				return getLoanTypeResponce();
-			} catch (SQLException e) {
+
+		if (!emiFlag) {
+			if ("GreetingIntent".equals(intentName)) {
+				return getGreetingResponce();
+			} else if ("ListLoanIntent".equals(intentName)) {
+				try {
+					return getLoanTypeResponce();
+				} catch (SQLException e) {
+					String errorSpeech = "This is unsupported.  Please try something else.";
+					return getSpeechletResponse(errorSpeech, errorSpeech, true);
+				}
+			} else if ("SessionEndIntent".equals(intentName)) {
+				return getEndSessionResponse();
+			} else if ("LoanInfoIntent".equals(intentName)) {
+				return getLoanDetailsResponce(intent, session);
+			} else if ("LoanInterestIntent".equals(intentName)) {
+				return getLoanInterestDetailsResponce(intent, session, false);
+			} else if ("LoanInterestInSessionIntent".equals(intentName)) {
+				return getLoanInterestDetailsResponce(intent, session, true);
+			} else if ("LoanDocumentIntent".equals(intentName)) {
+				return getLoanDocumentDetailsResponce(intent, session, false);
+			} else if ("LoanEMIIntent".equals(intentName)) {
+				return getEMIResponce(intent, session);
+			} else if ("AMAZON.HelpIntent".equals(intentName)) {
+				return getGreetingResponce();
+			} else {
 				String errorSpeech = "This is unsupported.  Please try something else.";
 				return getSpeechletResponse(errorSpeech, errorSpeech, true);
 			}
-		} else if ("SessionEndIntent".equals(intentName)) {
-			return getEndSessionResponse();
-		} else if ("LoanInfoIntent".equals(intentName)) {
-			return getLoanDetailsResponce(intent, session);
-		}  else if ("AMAZON.HelpIntent".equals(intentName)) {
-			return getGreetingResponce();
 		} else {
-			String errorSpeech = "This is unsupported.  Please try something else.";
-			return getSpeechletResponse(errorSpeech, errorSpeech, true);
+			if ("LoanEMIInquieryIntent".equals(intentName)) {
+				return getEMIResponce(intent, session);
+			} else {
+				String errorSpeech = "This is unsupported.  Please try something else.";
+				return getSpeechletResponse(errorSpeech, errorSpeech, true);
+			}
 		}
 	}
 
@@ -96,7 +121,7 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 
 		return getSpeechletResponse(speechText, repromptText, true);
 	}
-	
+
 	private SpeechletResponse getLoanTypeResponce() throws SQLException {
 		ResultSet loanTypes = DatabaseOperations.getAllLoanTypes();
 		String speechText = "We have different types of loans. Few are mentioned here. ";
@@ -109,25 +134,146 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 
 		return getSpeechletResponse(speechText, repromptText, true);
 	}
-	
+
 	private SpeechletResponse getLoanDetailsResponce(final Intent intent, final Session session) {
 		// Get the slots from the intent.
-        Map<String, Slot> slots = intent.getSlots();
-        
-        Slot loanTypeSlot = slots.get(LOAN_TYPE_SLOT);
-        
-        String speechText;
+		Map<String, Slot> slots = intent.getSlots();
+
+		Slot loanTypeSlot = slots.get(LOAN_TYPE_SLOT);
+
+		String speechText;
 		String repromptText = "May I help you?";
-		
-        if (loanTypeSlot != null) {
-        	String loanType = loanTypeSlot.getValue();
-        	speechText = DatabaseOperations.getLoanDescription(loanType);
-        } else {
-        	speechText = "Please tell me the specific loan type you want to know about.";
-        }
+
+		if (loanTypeSlot != null) {
+			String loanType = loanTypeSlot.getValue();
+			speechText = DatabaseOperations.getLoanDescription(loanType);
+			session.setAttribute(LOAN_TYPE, loanType);
+		} else {
+			speechText = "Please tell me the specific loan type you want to know about.";
+		}
 		return getSpeechletResponse(speechText, repromptText, true);
 	}
-	
+
+	private SpeechletResponse getLoanInterestDetailsResponce(final Intent intent, final Session session,
+			boolean inSession) {
+		// Get the slots from the intent.
+
+		Slot loanTypeSlot = intent.getSlot(LOAN_TYPE_SLOT);
+
+		String speechText;
+		String repromptText = "May I help you?";
+		if (inSession) {
+			if (session.getAttribute(LOAN_TYPE) != null) {
+				String loanType = (String) session.getAttribute(LOAN_TYPE);
+				speechText = DatabaseOperations.getLoanInterestDescription(loanType);
+			} else {
+				speechText = "Please tell me the specific loan type you want to know about.";
+			}
+		} else {
+			if (loanTypeSlot != null) {
+				String loanType = loanTypeSlot.getValue();
+				speechText = DatabaseOperations.getLoanInterestDescription(loanType);
+				session.setAttribute(LOAN_TYPE, loanType);
+			} else {
+				speechText = "Please tell me the specific loan type you want to know about.";
+			}
+		}
+		return getSpeechletResponse(speechText, repromptText, true);
+	}
+
+	private SpeechletResponse getLoanDocumentDetailsResponce(final Intent intent, final Session session,
+			boolean inSession) {
+		// Get the slots from the intent.
+
+		Slot loanTypeSlot = intent.getSlot(LOAN_TYPE_SLOT);
+
+		String speechText;
+		String repromptText = "May I help you?";
+		if (inSession) {
+			if (session.getAttribute(LOAN_TYPE) != null) {
+				String loanType = (String) session.getAttribute(LOAN_TYPE);
+				speechText = DatabaseOperations.getLoanDocumentDescription(loanType);
+			} else {
+				speechText = "Please tell me the specific loan type you want to know about.";
+			}
+		} else {
+			if (loanTypeSlot != null) {
+				String loanType = loanTypeSlot.getValue();
+				speechText = DatabaseOperations.getLoanDocumentDescription(loanType);
+				session.setAttribute(LOAN_TYPE, loanType);
+			} else {
+				speechText = "Please tell me the specific loan type you want to know about.";
+			}
+		}
+		return getSpeechletResponse(speechText, repromptText, true);
+	}
+
+	private SpeechletResponse getEMIResponce(final Intent intent, final Session session) {
+		// Get the slots from the intent.
+		String speechText = null;
+		String repromptText = "May I help you?";
+
+		if (emiStatus == 0) {
+			Slot loanTypeSlot = intent.getSlot(LOAN_TYPE_SLOT);
+			if (loanTypeSlot != null) {
+				String loanType = loanTypeSlot.getValue();
+				session.setAttribute(LOAN_TYPE, loanType);
+				speechText = "Can you tell me the amount of loan you need?";
+				emiStatus = 1;
+				emiFlag = true;
+			} else {
+				speechText = "Please tell me the specific loan type you want to know about.";
+			}
+		} else if (emiStatus == 1) {
+			Slot loanAmountSlot = intent.getSlot(EMI_AMOUNT_SLOT);
+			if (loanAmountSlot != null) {
+				double loanAmount = Double.parseDouble(loanAmountSlot.getValue());
+				session.setAttribute(LOAN_AMOUNT, loanAmount);
+				speechText = "Can you tell me the period of loan in months?";
+				emiStatus = 2;
+			} else {
+				speechText = "Please tell me the loan amount.";
+			}
+
+		} else if (emiStatus == 2) {
+			Slot loanPeriodSlot = intent.getSlot(EMI_AMOUNT_SLOT);
+			if (loanPeriodSlot != null) {
+				double loanPeriod = Double.parseDouble(loanPeriodSlot.getValue());
+				session.setAttribute(LOAN_PERIOD, loanPeriod);
+				speechText = "Can you tell me the period of loan in months?";
+				emiStatus = 3;
+			} else {
+				speechText = "Please tell me the loan period.";
+			}
+
+		} else if (emiStatus == 2) {
+			Slot loanDownpaymentSlot = intent.getSlot(EMI_AMOUNT_SLOT);
+			if (loanDownpaymentSlot != null) {
+				String loanName = (String) session.getAttribute(LOAN_TYPE);
+				double loanDownpayment = Double.parseDouble(loanDownpaymentSlot.getValue());
+				double loanPeriod = (double) session.getAttribute(LOAN_PERIOD);
+				double loanAmount = (double) session.getAttribute(LOAN_AMOUNT);
+
+				double interestRate = DatabaseOperations.getLoanInterestRate(loanName);
+
+				interestRate = interestRate / (12 * 100);
+				double principalAmount = loanAmount - loanDownpayment;
+				double temp = Math.pow(interestRate + 1, loanPeriod);
+				double emi = (principalAmount * interestRate * temp) / (temp - 1);
+
+				speechText = "Your EMI for " + loanName + " for " + loanAmount + " rupees at " + interestRate
+						+ "% interest rate with " + loanDownpayment + " rupees downpayment for " + loanPeriod
+						+ " months is " + emi;
+				emiStatus = 0;
+				emiFlag = false;
+			} else {
+				speechText = "Please tell me the loan period.";
+			}
+
+		}
+		return getSpeechletResponse(speechText, repromptText, true);
+	}
+
 	private SpeechletResponse getEndSessionResponse() {
 		String speechText = "Ok. Thank you for chatting with me. Have a nice day!";
 

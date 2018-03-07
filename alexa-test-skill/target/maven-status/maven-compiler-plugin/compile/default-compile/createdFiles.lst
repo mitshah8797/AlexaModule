@@ -1,3 +1,4 @@
 com\financeintelligence\alexa\BankAssistantSpeechlet.class
 com\financeintelligence\alexa\DatabaseOperations.class
+com\financeintelligence\alexa\Test.class
 com\financeintelligence\alexa\BankAssistantSpeechletRequestHandler.class
