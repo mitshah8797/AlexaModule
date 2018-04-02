@@ -30,6 +30,7 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 	private static final String LOAN_TYPE = "LOANTYPE";
 	private static final String LOAN_AMOUNT = "LOANAMOUNT";
 	private static final String LOAN_PERIOD = "LOANPERIOD";
+	private static final String LOAN_DOWNPAY = "LOANDOWNPAY";
 	private static final String ACCOUNT_NUMBER = "ACCOUNTNUMBER";
 	private static final String MOBILE_NUMBER = "MOBILENUMBER";
 	private static final String EMAIL_ID = "EMAILID";
@@ -294,6 +295,7 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 			if (loanDownpaymentSlot != null) {
 				String loanName = (String) session.getAttribute(LOAN_TYPE);
 				double loanDownpayment = Double.parseDouble(loanDownpaymentSlot.getValue());
+				session.setAttribute(LOAN_DOWNPAY, loanDownpayment);
 				double loanPeriod = (double) session.getAttribute(LOAN_PERIOD);
 				double loanAmount = (double) session.getAttribute(LOAN_AMOUNT);
 
@@ -326,10 +328,11 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 			Slot accountNumberSlot = intent.getSlot(AMOUNT_SLOT);
 			if (accountNumberSlot != null) {
 				String accountNumber = accountNumberSlot.getValue();
-				session.setAttribute(ACCOUNT_NUMBER, accountNumber);
-				speechText = "Okay. I have got your account number. I'll send all the details regarding your "
-						+ "loan application via sms/email on your registered mobile number/email id. Please confirm your details "
-						+ "and upload required documents. Have a nice day!!";
+				double loanPeriod = (double) session.getAttribute(LOAN_PERIOD);
+				double loanAmount = (double) session.getAttribute(LOAN_AMOUNT);
+				double loanDownpayment = (double) session.getAttribute(LOAN_DOWNPAY);
+				speechText = DatabaseOperations.addUserByAccountNumber(accountNumber, loanAmount, loanPeriod,
+						loanDownpayment, (String) session.getAttribute(LOAN_TYPE));
 				return getSpeechletResponse(speechText, speechText, false);
 			} else {
 				speechText = "Please tell me your account number.";
@@ -340,12 +343,18 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 			Slot mobileNumberSlot = intent.getSlot(AMOUNT_SLOT);
 			if (mobileNumberSlot != null) {
 				String mobileNumber = mobileNumberSlot.getValue();
+				if (mobileNumber.length() != 10) {
+					speechText = "The given mobile number is not correct. Please try a 10 digit mobile number.";
+					repromptText = "Please enter a 10 digit number.";
+					return getSpeechletResponse(speechText, repromptText, true);
+				}
 				session.setAttribute(MOBILE_NUMBER, mobileNumber);
-				speechText = "Okay. I have got your mobile number. I'll send all the details regarding your "
-						+ "loan application via sms on your registered mobile number. Please confirm your details "
-						+ "and upload required documents. Have a nice day!!";
+				double loanPeriod = (double) session.getAttribute(LOAN_PERIOD);
+				double loanAmount = (double) session.getAttribute(LOAN_AMOUNT);
+				double loanDownpayment = (double) session.getAttribute(LOAN_DOWNPAY);
+				speechText = DatabaseOperations.addUserByPhoneNumber(mobileNumber, loanAmount, loanPeriod,
+						loanDownpayment, (String) session.getAttribute(LOAN_TYPE));
 				return getSpeechletResponse(speechText, speechText, false);
-
 			} else {
 				speechText = "Please tell me your mobile number.";
 				repromptText = "You just have to say your mobile number.";
@@ -394,12 +403,13 @@ public class BankAssistantSpeechlet implements SpeechletV2 {
 				speechText = "Okay. Please tell me your mobile number.";
 				repromptText = "Just tell me your mobile number.";
 				hasABankAccount = false;
+				return getSpeechletResponse(speechText, repromptText, true);
 			} else {
 				speechText = "Thank you for chatting with me. Have a nice day!";
 				repromptText = speechText;
-			}
 
-			return getSpeechletResponse(speechText, repromptText, false);
+				return getSpeechletResponse(speechText, repromptText, false);
+			}
 		}
 	}
 
